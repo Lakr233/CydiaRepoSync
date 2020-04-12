@@ -34,7 +34,6 @@ Options:
                 "iPhone8,1", ignored if --mess
     --firmware  system version to request, default to
                 "13.0", ignored if --mess
-    --boom      enable multi thread
     --overwrite default to false, will download all
                 packages and overwrite them for no
                 reason even they already exists
@@ -43,7 +42,6 @@ Options:
     --skip-sum  shutdown package validation even if
                 there is check sum or other sum info
                 exists in package release file
-    --no-ssl    disable SSL verification if exists
     --mess      generate random id for each request
     --timegap   sleep several seconds between requests
                 default to 0 and disabled
@@ -59,10 +57,8 @@ Examples:
         --ua=someUAyouwant2use \
         --machine=iPhone9,2 \
         --firmware=12.0.0 \
-        --boom \
         --overwrite \
         --skip-sum \
-        --no-ssl \
         --mess \
         --timegap=1 \
         --clean
@@ -145,15 +141,15 @@ func invokePackageMeta(meta: String) -> pack? {
     let meta = invokeMeta(context: meta)
     
     guard let ver = meta["version"] else {
-        print("[invokePackageMeta] Invalid meta: missing version string")
+        print("[invokePackageMeta] Invalid meta ignored: missing version string")
         return nil
     }
     guard let id = meta["package"] else {
-        print("[invokePackageMeta] Invalid meta: missing package string")
+        print("[invokePackageMeta] Invalid meta ignored: missing package string")
         return nil
     }
     guard let _ = meta["filename"] else {
-        print("[invokePackageMeta] Invalid meta: missing download location")
+        print("[invokePackageMeta] Invalid meta ignored: missing download location")
         return nil
     }
     return pack(id: id, info: [ver : meta])
@@ -231,22 +227,20 @@ class ConfigManager {
     
     static let shared = ConfigManager(venderInfo: "vender init")
     
-    let url: URL
-    let output: URL
-    let depth: Int
-    let timeout: Int
-    let multiThread: Bool
-    let overwrite: Bool
+    let url: URL            // ✅
+    let output: URL         // ✅
+    let depth: Int          // ✅
+    let timeout: Int        // ✅
+    let overwrite: Bool     // ✅
     let skipsum: Bool
-    let noSSL: Bool
-    let mess: Bool
-    let gap: Int
-    let clean: Bool
+    let mess: Bool          // ✅
+    let gap: Int            // ✅
+    let clean: Bool         // ✅
     
-    let udid: String
-    let ua: String
-    let machine: String
-    let firmware: String
+    let udid: String        // ✅
+    let ua: String          // ✅
+    let machine: String     // ✅
+    let firmware: String    // ✅
     
     required init(venderInfo: String) {
         if venderInfo != "vender init" {
@@ -255,10 +249,8 @@ class ConfigManager {
         
         var _depth: Int?
         var _timeout: Int?
-        var _multi: Bool?
         var _overwrite: Bool?
         var _skipsum: Bool?
-        var _noSSL: Bool?
         var _mess: Bool?
         var _gap: Int?
         var _clean: Bool?
@@ -303,10 +295,6 @@ class ConfigManager {
                     _ver = String(item.dropFirst("--firmware=".count))
                     continue
                 }
-                if item == "--boom" {
-                    _multi = true
-                    continue
-                }
                 if item == "--overwrite" {
                     _overwrite = true
                     continue
@@ -317,10 +305,6 @@ class ConfigManager {
                 }
                 if item == "--clean" {
                     _clean = true
-                    continue
-                }
-                if item == "--no-ssl" {
-                    _noSSL = true
                     continue
                 }
                 if item == "--mess" {
@@ -345,11 +329,6 @@ class ConfigManager {
         } else {
             self.timeout = 30
         }
-        if let val = _multi {
-            self.multiThread = val
-        } else {
-            self.multiThread = false
-        }
         if let val = _overwrite {
             self.overwrite = val
         } else {
@@ -359,11 +338,6 @@ class ConfigManager {
             self.skipsum = val
         } else {
             self.skipsum = false
-        }
-        if let val = _noSSL {
-            self.noSSL = val
-        } else {
-            self.noSSL = false
         }
         if let val = _mess {
             self.mess = val
@@ -417,17 +391,11 @@ class ConfigManager {
         if skipsum {
             status += " skipsum"
         }
-        if noSSL {
-            status += " noSSL"
-        }
         if mess {
             status += " mess"
         }
         if clean {
             status += " clean"
-        }
-        if multiThread {
-            status += " multiThread"
         }
         if (status != "") {
             while status.hasPrefix(" ") {
@@ -648,24 +616,38 @@ class JobManager {
         } else {
             alreadyExistsPackages = [:]
         }
-    
+    
         // 检查下载的depth
         if (ConfigManager.shared.depth > 0) {
             var temp: [pack] = []
             let depth = ConfigManager.shared.depth
             let dpkgAgent = dpkgWrapper()
-            for pack in debContainer {
+            for object in debContainer {
                 // 获取这个软件包的全部版本
-                var versionStrings = pack.info.keys
+                let versionStrings = object.info.keys
                 // 排序
-                versionStrings.sorted { (A, B) -> Bool in
+                let what = versionStrings.sorted { (A, B) -> Bool in
                     return dpkgAgent.compareVersionA(A, andB: B) == 1
                 }
+                var createdNewVersionKeys: [String] = []
+                var count = 0
+                flag2: for item in what {
+                    createdNewVersionKeys.append(item)
+                    count += 1
+                    if count > depth {
+                        break flag2
+                    }
+                }
                 // 创建新的versionkeys
-                print("")
+                var newVersion: [String : [String : String]] = [:]
+                for item in createdNewVersionKeys {
+                    newVersion[item] = object.info[item]
+                }
                 // 合成符合要求的deb
-                
+                let new: pack = pack(id: object.id, info: newVersion)
+                temp.append(new)
             }
+            debContainer = temp
         }
         
         
@@ -673,13 +655,24 @@ class JobManager {
     
     func initPrint() {
         
-        print("\n\n")
+        print("\n--- SUMMARY ---\n")
         print(String(debContainer.count) + " packages to download in total")
+        print("\n--- SUMMARY ---\n")
         
+    }
+    
+    func download(from: URL, to: URL) {
+        print("From: " + from.absoluteString + "\n  to: " + to.absoluteString)
+        let sem = DispatchSemaphore(value: 0)
+        // 开始下载
+        
+        // 超时由URLTask处理
+        sem.wait()
     }
     
 }
 
+// 初始化输出目录
 do {
     do {
         var isDir = ObjCBool(booleanLiteral: false)
@@ -718,4 +711,24 @@ do {
 // 先决处理软件源 Release 和 Package 由JobManager处理
 JobManager.shared.initPrint()
 
-// 初始化输出目录
+do {
+    for package in debContainer {
+        for version in package.info {
+            guard let comp = version.value["filename"] else {
+                print("[E] Package with id: " + package.id + " at version:" + version.key + " failed to locate and ignored")
+                continue
+            }
+            let target = ConfigManager.shared.url.appendingPathComponent(comp)
+            guard let name = comp.split(separator: "/").last else {
+                print("[E] Package with id: " + package.id + " at version:" + version.key + " failed to get file name and ignored")
+                print("    -> " + comp)
+                continue
+            }
+            JobManager.shared.download(from: target, to: ConfigManager.shared.output.appendingPathComponent("debs").appendingPathComponent(String(name)))
+            // 看下要不要睡一会
+            if (ConfigManager.shared.gap > 0) {
+                sleep(UInt32(ConfigManager.shared.gap))
+            }
+        }
+    }
+}
