@@ -17,9 +17,16 @@ build:
     - rm -rf artifacts
     - mkdir artifacts    
 
-    # Submodule
-    - git submodule init
-    - git submodule update
+    # # Submodule
+    # - git config --global http.proxy http://192.168.54.138:10000
+    # - git config --global https.proxy https://192.168.54.138:10000
+    # - git submodule init
+    # - git submodule update
+    # - git config --global --unset http.proxy
+    # - git config --global --unset https.proxy
+
+    # Extract submodule from cache due to luck of GFW
+    - tar -xvf ./submoduleCache.tar
 
     # Build
     - cd $SAFELOCATION
