@@ -7,8 +7,8 @@
 //
 
 import Foundation
+import SWCompression
 
-// 校验输入
 let USAGE_STRING = """
 Usage: ./RepoSync <url> <output dir> [Options]
 
@@ -63,9 +63,13 @@ Examples:
 """
 
 
-func getAbsoluteURL(url: URL) -> URL {
+func getAbsoluteURL(location: String) -> URL {
+    let path = location.replacingOccurrences(of: "~", with: FileManager.default.homeDirectoryForCurrentUser.path)
+    if path.hasPrefix("/") {
+        return URL(fileURLWithPath: path)
+    }
     let current = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    let ret = URL(fileURLWithPath: url.absoluteString, relativeTo: current)
+    let ret = URL(fileURLWithPath: path, relativeTo: current)
     return ret
 }
 
@@ -150,52 +154,52 @@ class ConfigManager {
         }
         
         self.url = URL(string: CommandLine.arguments[1])!
-        self.output = getAbsoluteURL(url: URL(fileURLWithPath: CommandLine.arguments[2]))
+        self.output = getAbsoluteURL(location: CommandLine.arguments[2])
         
         if (CommandLine.arguments.count > 3) {
             for i in 3...(CommandLine.arguments.count - 1) {
                 let item = CommandLine.arguments[i]
-                if item.hasPrefix("depth=") {
-                    _depth = Int(item.dropFirst("depth=".count))
+                if item.hasPrefix("--depth=") {
+                    _depth = Int(item.dropFirst("--depth=".count))
                     continue
                 }
-                if item.hasPrefix("timeout=") {
-                    _timeout = Int(item.dropFirst("timeout=".count))
+                if item.hasPrefix("--timeout=") {
+                    _timeout = Int(item.dropFirst("--timeout=".count))
                     continue
                 }
-                if item.hasPrefix("udid=") {
-                    _udid = String(item.dropFirst("udid=".count))
+                if item.hasPrefix("--udid=") {
+                    _udid = String(item.dropFirst("--udid=".count))
                     continue
                 }
-                if item.hasPrefix("ua=") {
-                    _ua = String(item.dropFirst("ua=".count))
+                if item.hasPrefix("--ua=") {
+                    _ua = String(item.dropFirst("--ua=".count))
                     continue
                 }
-                if item.hasPrefix("machine=") {
-                    _machine = String(item.dropFirst("machine=".count))
+                if item.hasPrefix("--machine=") {
+                    _machine = String(item.dropFirst("--machine=".count))
                     continue
                 }
-                if item.hasPrefix("firmware=") {
-                    _ver = String(item.dropFirst("firmware=".count))
+                if item.hasPrefix("--firmware=") {
+                    _ver = String(item.dropFirst("--firmware=".count))
                     continue
                 }
-                if item == "boom" {
+                if item == "--boom" {
                     _multi = true
                     continue
                 }
-                if item == "overwrite" {
+                if item == "--overwrite" {
                     _overwrite = true
                     continue
                 }
-                if item == "skip_sum" {
+                if item == "--skip-sum" {
                     _skipsum = true
                     continue
                 }
-                if item == "no-ssl" {
+                if item == "--no-ssl" {
                     _noSSL = true
                     continue
                 }
-                if item == "mess" {
+                if item == "--mess" {
                     _mess = true
                     continue
                 }
@@ -267,30 +271,202 @@ class ConfigManager {
         print("\n")
         print("-------------------------")
         print("From: " + url.absoluteString + " to: " + output.absoluteString)
-        print("-> depth: " + String(depth))
-        print("-> ", separator: "", terminator: "")
+        print(" -> depth: " + String(depth))
+        var status = ""
         if overwrite {
-            print(" overwrite", separator: "", terminator: "")
+            status += " overwrite"
         }
         if skipsum {
-            print(" skipsum", separator: "", terminator: "")
+            status += " skipsum"
         }
         if noSSL {
-            print(" noSSL", separator: "", terminator: "")
+            status += " noSSL"
         }
         if mess {
-            print(" mess", separator: "", terminator: "")
+            status += " mess"
         }
-        print("Request Headers:")
-        print("User-Agent: " + ua)
-        print("X-Unique-ID: " + udid)
-        print("X-Machine:" + machine + " X-Firmware: " + firmware)
+        if multiThread {
+            status += " multiThread"
+        }
+        if (status != "") {
+            while status.hasPrefix(" ") {
+                status = String(status.dropFirst())
+            }
+            print(" -> " + status)
+        }
+        if (mess) {
+            print("Request Messed!")
+        } else {
+            print("Request Headers:")
+            print(" -> User-Agent: " + ua)
+            print(" -> X-Unique-ID: " + udid)
+            print(" -> X-Machine:" + machine + " X-Firmware: " + firmware)
+        }
         print("-------------------------")
         print("\n")
     }
     
 }
 
+// 初始化配置
 ConfigManager.shared.printConfig()
 
+// 输出文件组织
+// output dir:
+//    |
+//    |-> Release       plain text if exists
+//    |-> Packages      plain text if exists
+//    |-> debs          packages
 
+class JobManager {
+    
+    static let shared = JobManager(venderInfo: "vender init")
+    
+    let release: String
+    let package: String
+    let alreadyExistsPackages: [String]
+    
+    static let tim = DispatchQueue(label: "wiki.qaq.JobsLoveTim")
+    
+    required init(venderInfo: String) {
+        if venderInfo != "vender init" {
+            fatalError("ConfigManager could only be init by vender and have one instance")
+        }
+        let semRelease = DispatchSemaphore(value: 0)
+        let semPackage = DispatchSemaphore(value: 0)
+        
+        var getRelease: String?
+        var getPackage: String?
+        
+        JobManager.tim.async {
+            let request = createCydiaRequest(url: ConfigManager.shared.url.appendingPathComponent("Release"))
+            let config = URLSessionConfiguration.default
+            let session = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
+            let task = session.dataTask(with: request) { (data, respond, error) in
+                if error == nil, let data = data, let resp = respond as? HTTPURLResponse {
+                    if resp.statusCode != 200 {
+                        print("[Release] Failed to get repo release, server returned " + String(resp.statusCode))
+                    } else {
+                        if let str = String(data: data, encoding: .utf8) {
+                            getRelease = str
+                        } else if let str = String(data: data, encoding: .ascii) {
+                            getRelease = str
+                        } else {
+                            print("[Release] Decode failed, ignored")
+                        }
+                    }
+                }
+                semRelease.signal()
+            }
+            task.resume()
+        }
+        
+        let search = ["bz2", "", "xz", "gz", "lzma", "lzma2", "bz", "xz2", "gz2"]
+        
+        // 小心菊花
+        let sync = DispatchQueue(label: "watch.our.ass")
+        for item in search {
+            JobManager.tim.async {
+                let request: URLRequest
+                if item == "" {
+                    request = createCydiaRequest(url: ConfigManager.shared.url.appendingPathComponent("Packages"))
+                } else {
+                    request = createCydiaRequest(url: ConfigManager.shared.url.appendingPathComponent("Packages." + item))
+                }
+                let config = URLSessionConfiguration.default
+                let session = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
+                let task = session.dataTask(with: request) { (data, respond, error) in
+                    if error == nil, let data = data, let resp = respond as? HTTPURLResponse {
+                        if resp.statusCode != 200 {
+                            print("[Packages] Failed to get repo meta data, server returned " + String(resp.statusCode) + " when looking for ." + item)
+                        } else {
+                            let decode: Data?
+                            switch item {
+                            case "":
+                                decode = data
+                            case "bz2", "bz":
+                                decode = try? BZip2.decompress(data: data)
+                            case "gz", "gz2":
+                                decode = try? GzipArchive.unarchive(archive: data)
+                            case "xz", "xz2":
+                                decode = try? XZArchive.unarchive(archive: data)
+                            case "lzma":
+                                decode = try? LZMA.decompress(data: data)
+                            case "lzma2":
+                                decode = try? LZMA2.decompress(data: data)
+                            default:
+                                fatalError("Unknown data format passed to vender function")
+                            }
+                            if let decoded = decode {
+                                if let str = String(data: decoded, encoding: .utf8) {
+                                    sync.sync {
+                                        getPackage = str
+                                        semPackage.signal()
+                                    }
+                                    return
+                                } else if let str = String(data: decoded, encoding: .ascii) {
+                                    sync.sync {
+                                        getPackage = str
+                                        semPackage.signal()
+                                    }
+                                    return
+                                } else {
+                                    print("[Release] Decode failed, ignored")
+                                }
+                            }
+                        }
+                    }
+                }
+                task.resume()
+            }
+        }
+        
+        
+        let _ = semRelease.wait(timeout: .now() + Double(ConfigManager.shared.timeout))
+        semPackage.wait()
+        
+        if getRelease != nil {
+            release = getRelease!
+        } else {
+            release = ""
+        }
+        
+        assert(getPackage != nil, "\n\nFailed to download packages' meta data")
+        package = getPackage!
+        
+        if release != "" {
+            try? FileManager.default.removeItem(at: ConfigManager.shared.output.appendingPathComponent("Release.txt"))
+            try? release.write(to: ConfigManager.shared.output.appendingPathComponent("Release.txt"), atomically: true, encoding: .utf8)
+        }
+
+        try? FileManager.default.removeItem(at: ConfigManager.shared.output.appendingPathComponent("Packages.txt"))
+        try? package.write(to: ConfigManager.shared.output.appendingPathComponent("Packages.txt"), atomically: true, encoding: .utf8)
+        
+        
+        print("Invoking package metadata, this will take some times...")
+        
+        alreadyExistsPackages = []
+        
+        
+        
+    }
+    
+    func initPrint() {
+        
+    }
+    
+}
+
+do {
+    var isDir = ObjCBool(booleanLiteral: false)
+    if FileManager.default.fileExists(atPath: ConfigManager.shared.output.absoluteString, isDirectory: &isDir) {
+        assert(isDir.boolValue, "Output location must be a folder")
+    } else {
+        try! FileManager.default.createDirectory(at: ConfigManager.shared.output, withIntermediateDirectories: true, attributes: nil)
+    }
+}
+
+// 先决处理软件源 Release 和 Package 由JobManager处理
+JobManager.shared.initPrint()
+
+// 初始化输出目录

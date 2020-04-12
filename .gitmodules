@@ -1,0 +1,6 @@
+[submodule "SWCompression"]
+	path = SWCompression
+	url = https://github.com/tsolomko/SWCompression
+[submodule "BitByteData"]
+	path = BitByteData
+	url = https://github.com/tsolomko/BitByteData
