@@ -69,11 +69,11 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--depth=4"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--timeout=60"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--udid=arandomudidnumber"
@@ -93,6 +93,10 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--overwrite"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--clean"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument

@@ -23,7 +23,9 @@ Options:
 
     --depth     default to 2, used to control how
                 may versions of a package should be
-                downloaded if they exists
+                downloaded if they exists. the count
+                excluded they versions that exists
+                locally
                 set to 0 to download them all
     --timeout   default to 30, used to control timeout
                 time for each package download session
@@ -550,7 +552,10 @@ class JobManager {
         }
 
         do {
-            try FileManager.default.removeItem(at: ConfigManager.shared.output.appendingPathComponent("Packages.txt"))
+            let loc = ConfigManager.shared.output.appendingPathComponent("Packages.txt")
+            if FileManager.default.fileExists(atPath: String(loc.absoluteString.dropFirst(5))) {
+                try FileManager.default.removeItem(at: ConfigManager.shared.output.appendingPathComponent("Packages.txt"))
+            }
             try package.write(to: ConfigManager.shared.output.appendingPathComponent("Packages.txt"), atomically: true, encoding: .utf8)
         } catch {
             fatalError("\nCannot write package file to output location, maybe permission denied")
@@ -568,7 +573,11 @@ class JobManager {
         } else {
             // 先获取存在的软件包
             exists = [:]
-            let contents = try? FileManager.default.contentsOfDirectory(atPath: ConfigManager.shared.output.appendingPathComponent("debs").absoluteString)
+            var loc = ConfigManager.shared.output.appendingPathComponent("debs").absoluteString
+            if loc.hasPrefix("file:") {
+                loc = String(loc.dropFirst(5)) // must be there
+            }
+            let contents = try? FileManager.default.contentsOfDirectory(atPath: loc)
             flag1: for item in contents ?? [] {
                 // 校验软件包 核验通过之后添加到已存在列表
                 for object in packages {
@@ -695,7 +704,7 @@ class JobManager {
 do {
     do {
         var isDir = ObjCBool(booleanLiteral: false)
-        if FileManager.default.fileExists(atPath: ConfigManager.shared.output.absoluteString, isDirectory: &isDir) {
+        if FileManager.default.fileExists(atPath: String(ConfigManager.shared.output.absoluteString.dropFirst(5)), isDirectory: &isDir) {
             assert(isDir.boolValue, "\nOutput location must be a folder")
             if ConfigManager.shared.clean {
                 do {
@@ -715,7 +724,7 @@ do {
     }
     do {
         var isDir = ObjCBool(booleanLiteral: false)
-        if FileManager.default.fileExists(atPath: ConfigManager.shared.output.appendingPathComponent("debs").absoluteString, isDirectory: &isDir) {
+        if FileManager.default.fileExists(atPath: String(ConfigManager.shared.output.appendingPathComponent("debs").absoluteString.dropFirst(5)), isDirectory: &isDir) {
             assert(isDir.boolValue, "\nOutput location must be a folder")
         } else {
             do {
