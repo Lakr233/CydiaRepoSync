@@ -97,7 +97,7 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--clean"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--skip-sum"

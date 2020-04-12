@@ -18,7 +18,9 @@ Options:
 
     --depth     default to 2, used to control how
                 may versions of a package should be
-                downloaded if they exists
+                downloaded if they exists. the count
+                excluded they versions that exists
+                locally
                 set to 0 to download them all
     --timeout   default to 30, used to control timeout
                 time for each package download session
@@ -29,15 +31,18 @@ Options:
                 "iPhone8,1", ignored if --mess
     --firmware  system version to request, default to
                 "13.0", ignored if --mess
-    --boom      enable multi thread
     --overwrite default to false, will download all
                 packages and overwrite them for no
                 reason even they already exists
+    --clean     enable clean will delete all your local
+                files in output dir first
     --skip-sum  shutdown package validation even if
                 there is check sum or other sum info
                 exists in package release file
-    --no-ssl    disable SSL verification if exists
     --mess      generate random id for each request
+    --timegap   sleep several seconds between requests
+                default to 0 and disabled
+                some repo has limited request to 10/min
                 ^_^
 
 Examples:
@@ -49,11 +54,11 @@ Examples:
         --ua=someUAyouwant2use \
         --machine=iPhone9,2 \
         --firmware=12.0.0 \
-        --boom \
         --overwrite \
         --skip-sum \
-        --no-ssl \
-        --mess
+        --mess \
+        --timegap=1 \
+        --clean
 
 ```
 
