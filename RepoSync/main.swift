@@ -634,7 +634,7 @@ class JobManager {
                 flag2: for item in what {
                     createdNewVersionKeys.append(item)
                     count += 1
-                    if count > depth {
+                    if count >= depth {
                         break flag2
                     }
                 }
