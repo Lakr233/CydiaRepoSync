@@ -20,6 +20,16 @@ Options:
                 may versions of a package should be
                 downloaded if they exists
                 set to 0 to download them all
+    --timeout   default to 30, used to control timeout
+                time for each package download session
+    --udid      udid to request, ignored if --mess
+                random if not set
+    --ua        user agent to request, cydia if not set
+    --machine   machine to request, default to
+                "iPhone8,1", ignored if --mess
+    --firmware  system version to request, default to
+                "13.0", ignored if --mess
+    --boom      enable multi thread
     --overwrite default to false, will download all
                 packages and overwrite them for no
                 reason even they already exists
@@ -34,10 +44,17 @@ Examples:
 
     ./RepoSync https://repo.test.cn ./out \
         --depth=4 \
+        --timeout=60 \
+        --udid=arandomudidnumber \
+        --ua=someUAyouwant2use \
+        --machine=iPhone9,2 \
+        --firmware=12.0.0 \
+        --boom \
         --overwrite \
         --skip-sum \
         --no-ssl \
         --mess
+
 ```
 
 2020.4.12 Lakr Aream
