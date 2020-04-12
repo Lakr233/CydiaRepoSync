@@ -33,6 +33,7 @@ build:
     - cd $SAFELOCATION
     - rm -rf Packages/*
     - xcodebuild clean
+    - xcodebuild -workspace ./RepoSync.xcworkspace -scheme SWCompression
     - xcodebuild -workspace ./RepoSync.xcworkspace -scheme RepoSync
     - cp ./CI/* $SAFELOCATION/artifacts/
 
