@@ -4,7 +4,6 @@ before_script:
   - uname -a
   - whoami
   - pwd
-  - xcodebuild -list
 
 build:
   tags:
@@ -27,6 +26,8 @@ build:
 
     # Extract submodule from cache due to luck of GFW
     - tar -xvf ./submoduleCache.tar
+
+    - xcodebuild -workspace ./RepoSync.xcworkspace -list
 
     # Build
     - cd $SAFELOCATION
