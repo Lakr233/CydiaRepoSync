@@ -132,7 +132,7 @@ class ConfigManager {
     
     required init(venderInfo: String) {
         if venderInfo != "vender init" {
-            fatalError("ConfigManager could only be init by vender and have one instance")
+            fatalError("\nConfigManager could only be init by vender and have one instance")
         }
         
         var _depth: Int?
@@ -203,7 +203,7 @@ class ConfigManager {
                     _mess = true
                     continue
                 }
-                fatalError("Command not understood: " + item)
+                fatalError("\nCommand not understood: " + item)
             }
         }
         
@@ -330,7 +330,7 @@ class JobManager {
     
     required init(venderInfo: String) {
         if venderInfo != "vender init" {
-            fatalError("ConfigManager could only be init by vender and have one instance")
+            fatalError("\nConfigManager could only be init by vender and have one instance")
         }
         let semRelease = DispatchSemaphore(value: 0)
         let semPackage = DispatchSemaphore(value: 0)
@@ -395,7 +395,7 @@ class JobManager {
                             case "lzma2":
                                 decode = try? LZMA2.decompress(data: data)
                             default:
-                                fatalError("Unknown data format passed to vender function")
+                                fatalError("\nUnknown data format passed to vender function")
                             }
                             if let decoded = decode {
                                 if let str = String(data: decoded, encoding: .utf8) {
@@ -423,7 +423,7 @@ class JobManager {
         
         
         let _ = semRelease.wait(timeout: .now() + Double(ConfigManager.shared.timeout))
-        semPackage.wait()
+        let _ = semPackage.wait(timeout: .now() + Double(ConfigManager.shared.timeout * search.count))
         
         if getRelease != nil {
             release = getRelease!
@@ -431,7 +431,7 @@ class JobManager {
             release = ""
         }
         
-        assert(getPackage != nil, "\n\nFailed to download packages' meta data")
+        assert(getPackage != nil, "\nFailed to download packages' meta data")
         package = getPackage!
         
         if release != "" {
@@ -439,10 +439,14 @@ class JobManager {
             try? release.write(to: ConfigManager.shared.output.appendingPathComponent("Release.txt"), atomically: true, encoding: .utf8)
         }
 
-        try? FileManager.default.removeItem(at: ConfigManager.shared.output.appendingPathComponent("Packages.txt"))
-        try? package.write(to: ConfigManager.shared.output.appendingPathComponent("Packages.txt"), atomically: true, encoding: .utf8)
+        do {
+            try FileManager.default.removeItem(at: ConfigManager.shared.output.appendingPathComponent("Packages.txt"))
+            try package.write(to: ConfigManager.shared.output.appendingPathComponent("Packages.txt"), atomically: true, encoding: .utf8)
+        } catch {
+            fatalError("\nCannot write package file to output location, maybe permission denied")
+        }
         
-        
+        print("\n\n🎉 Congratulations! Repo is validated!\n\n")
         print("Invoking package metadata, this will take some times...")
         
         alreadyExistsPackages = []
@@ -458,11 +462,29 @@ class JobManager {
 }
 
 do {
-    var isDir = ObjCBool(booleanLiteral: false)
-    if FileManager.default.fileExists(atPath: ConfigManager.shared.output.absoluteString, isDirectory: &isDir) {
-        assert(isDir.boolValue, "Output location must be a folder")
-    } else {
-        try! FileManager.default.createDirectory(at: ConfigManager.shared.output, withIntermediateDirectories: true, attributes: nil)
+    do {
+        var isDir = ObjCBool(booleanLiteral: false)
+        if FileManager.default.fileExists(atPath: ConfigManager.shared.output.absoluteString, isDirectory: &isDir) {
+            assert(isDir.boolValue, "\nOutput location must be a folder")
+        } else {
+            do {
+                try FileManager.default.createDirectory(at: ConfigManager.shared.output, withIntermediateDirectories: true, attributes: nil)
+            } catch {
+                fatalError("\nCannot create output location, maybe permission denied.")
+            }
+        }
+    }
+    do {
+        var isDir = ObjCBool(booleanLiteral: false)
+        if FileManager.default.fileExists(atPath: ConfigManager.shared.output.appendingPathComponent("debs").absoluteString, isDirectory: &isDir) {
+            assert(isDir.boolValue, "\nOutput location must be a folder")
+        } else {
+            do {
+                try FileManager.default.createDirectory(at: ConfigManager.shared.output.appendingPathComponent("debs"), withIntermediateDirectories: true, attributes: nil)
+            } catch {
+                fatalError("\nCannot create output deb location, maybe permission denied.")
+            }
+        }
     }
 }
 
