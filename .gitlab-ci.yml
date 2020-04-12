@@ -20,6 +20,7 @@ build:
     # Build
     - cd $SAFELOCATION
     - rm -rf Packages/*
-    - xcodebuild clean -workspace ./RepoSync.xcworkspace -scheme RepoSync
+    - xcodebuild clean 
+    - xcodebuild -workspace ./RepoSync.xcworkspace -scheme RepoSync
     - cp ./CI/* $SAFELOCATION/artifacts/
 
