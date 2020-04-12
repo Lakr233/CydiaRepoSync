@@ -17,10 +17,14 @@ build:
     - rm -rf artifacts
     - mkdir artifacts    
 
+    # Submodule
+    - git submodule init
+    - git submodule update
+
     # Build
     - cd $SAFELOCATION
     - rm -rf Packages/*
-    - xcodebuild clean 
+    - xcodebuild clean
     - xcodebuild -workspace ./RepoSync.xcworkspace -scheme RepoSync
     - cp ./CI/* $SAFELOCATION/artifacts/
 
