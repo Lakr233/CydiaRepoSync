@@ -68,8 +68,8 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "--depth=4"
-            isEnabled = "NO">
+            argument = "--depth=0"
+            isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--timeout=60"
@@ -97,7 +97,7 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--clean"
-            isEnabled = "NO">
+            isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--skip-sum"

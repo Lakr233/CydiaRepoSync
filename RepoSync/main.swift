@@ -8,6 +8,7 @@
 
 import Foundation
 import SWCompression
+import CommonCrypto
 
 let USAGE_STRING = """
 Usage: ./RepoSync <url> <output dir> [Options]
@@ -187,9 +188,12 @@ func getAbsoluteURL(location: String) -> URL {
     return ret
 }
 
-func createCydiaRequest(url: URL) -> URLRequest {
+func createCydiaRequest(url: URL, slient: Bool = false) -> URLRequest {
     
-    print("[CydiaRequest] Requesting GET to -> " + url.absoluteString)
+    if !slient {
+        print("[CydiaRequest] Requesting GET to -> " + url.absoluteString)
+    }
+    
     var request: URLRequest
     request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval:  TimeInterval(ConfigManager.shared.timeout))
     
@@ -429,6 +433,7 @@ ConfigManager.shared.printConfig()
 //    |-> Packages      plain text if exists
 //    |-> debs          packages
 
+var errorTint: [String] = []
 class JobManager {
     
     static let shared = JobManager(venderInfo: "vender init")
@@ -670,23 +675,83 @@ class JobManager {
         
     }
     
-    func download(from: URL, to: URL) {
+    func download(from: URL, to: URL, md5: String? = nil, sha1: String? = nil, sha256: String? = nil) {
         print("From: " + from.absoluteString + "\n  to: " + to.absoluteString)
         let sem = DispatchSemaphore(value: 0)
         // 开始下载
         JobManager.tim.async {
-            let request = createCydiaRequest(url: from)
+            let request = createCydiaRequest(url: from, slient: true)
             let config = URLSessionConfiguration.default
             let session = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
             let task = session.dataTask(with: request) { (data, respond, error) in
                 if error == nil, let data = data, let resp = respond as? HTTPURLResponse {
                     if resp.statusCode != 200 {
                         print("[Release] Failed to get repo release, server returned " + String(resp.statusCode))
+                        errorTint.append("Failed to download from: " + from.absoluteString)
                     } else {
-                        do {
-                            try data.write(to: to)
-                        } catch {
-                            print(" [E]: Failed to write package data and skipped")
+                        if !ConfigManager.shared.skipsum {
+                            // 校验数据
+                            var failed = false
+                            if let md5 = md5 {
+                                let length = Int(CC_MD5_DIGEST_LENGTH)
+                                let messageData = data
+                                var digestData = Data(count: length)
+                                _ = digestData.withUnsafeMutableBytes { digestBytes -> UInt8 in
+                                    messageData.withUnsafeBytes { messageBytes -> UInt8 in
+                                        if let messageBytesBaseAddress = messageBytes.baseAddress, let digestBytesBlindMemory = digestBytes.bindMemory(to: UInt8.self).baseAddress {
+                                            let messageLength = CC_LONG(messageData.count)
+                                            CC_MD5(messageBytesBaseAddress, messageLength, digestBytesBlindMemory)
+                                        }
+                                        return 0
+                                    }
+                                }
+                                let md5Hex =  digestData.map { String(format: "%02hhx", $0) }.joined()
+                                if md5.lowercased() != md5Hex.lowercased() {
+                                    errorTint.append("MD5 failed at: " + from.absoluteString)
+                                    failed = true
+                                }
+                            }
+                            if let sha1 = sha1 {
+                                var digest = [UInt8](repeating: 0, count:Int(CC_SHA1_DIGEST_LENGTH))
+                                data.withUnsafeBytes {
+                                    _ = CC_SHA1($0.baseAddress, CC_LONG(data.count), &digest)
+                                }
+                                let hexBytes = digest.map { String(format: "%02hhx", $0) }
+                                let sha1Hex = hexBytes.joined()
+                                if sha1.lowercased() != sha1Hex.lowercased() {
+                                    errorTint.append("SHA1 failed at: " + from.absoluteString)
+                                    failed = true
+                                }
+                            }
+                            if let sha256 = sha256 {
+                                var digest = [UInt8](repeating: 0, count:Int(CC_SHA256_DIGEST_LENGTH))
+                                data.withUnsafeBytes {
+                                    _ = CC_SHA256($0.baseAddress, CC_LONG(data.count), &digest)
+                                }
+                                let hexBytes = digest.map { String(format: "%02hhx", $0) }
+                                let sha256Hex = hexBytes.joined()
+                                if sha256.lowercased() != sha256Hex.lowercased() {
+                                    errorTint.append("SHA256 failed at: " + from.absoluteString)
+                                    failed = true
+                                }
+                            }
+                            if failed {
+                                print(" [E]: Failed to write package due to broken data found, skipped")
+                            } else {
+                                do {
+                                    try data.write(to: to)
+                                } catch {
+                                    print(" [E]: Failed to write package data, skipped")
+                                    errorTint.append("Failed to download from: " + from.absoluteString)
+                                }
+                            }
+                        } else {
+                            do {
+                                try data.write(to: to)
+                            } catch {
+                                print(" [E]: Failed to write package data, skipped")
+                                errorTint.append("Failed to download from: " + from.absoluteString)
+                            }
                         }
                     }
                 }
@@ -756,7 +821,11 @@ do {
                 print("    -> " + comp)
                 continue
             }
-            JobManager.shared.download(from: target, to: ConfigManager.shared.output.appendingPathComponent("debs").appendingPathComponent(String(name)))
+            JobManager.shared.download(from: target,
+                                       to: ConfigManager.shared.output.appendingPathComponent("debs").appendingPathComponent(String(name)),
+                                       md5: version.value["md5sum"],
+                                       sha1: version.value["sha1"],
+                                       sha256: version.value["sha256"])
             // 看下要不要睡一会
             if (ConfigManager.shared.gap > 0) {
                 sleep(UInt32(ConfigManager.shared.gap))
@@ -764,4 +833,14 @@ do {
         }
         count += 1
     }
+}
+
+for item in errorTint {
+    print("[E] " + item)
+}
+
+if errorTint.count == 0 {
+    print("\n\n🎉 No error occurs during download\n\n")
+} else {
+    print("\n\nTask finished with errors above\n\n")
 }
