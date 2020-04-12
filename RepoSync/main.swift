@@ -53,17 +53,17 @@ Options:
 
 Examples:
 
-    ./RepoSync https://repo.test.cn ./out \
-        --depth=4 \
-        --timeout=60 \
-        --udid=arandomudidnumber \
-        --ua=someUAyouwant2use \
-        --machine=iPhone9,2 \
-        --firmware=12.0.0 \
-        --overwrite \
-        --skip-sum \
-        --mess \
-        --timegap=1 \
+    ./RepoSync https://repo.test.cn ./out \\
+        --depth=4 \\
+        --timeout=60 \\
+        --udid=arandomudidnumber \\
+        --ua=someUAyouwant2use \\
+        --machine=iPhone9,2 \\
+        --firmware=12.0.0 \\
+        --overwrite \\
+        --skip-sum \\
+        --mess \\
+        --timegap=1 \\
         --clean
 
 """
