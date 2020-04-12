@@ -1,0 +1,25 @@
+# CI for Xcode Builder
+
+before_script:
+  - uname -a
+  - whoami
+  - pwd
+  - xcodebuild -list
+
+build:
+  tags:
+    - iOS
+  artifacts:
+    paths:
+      - artifacts/
+  script:
+    - SAFELOCATION=$(pwd) && echo $SAFELOCATION
+    - rm -rf artifacts
+    - mkdir artifacts    
+
+    # Build
+    - cd $SAFELOCATION
+    - rm -rf Packages/*
+    - xcodebuild clean -workspace ./RepoSync.xcworkspace -scheme RepoSync
+    - cp ./CI/* $SAFELOCATION/artifacts/
+
