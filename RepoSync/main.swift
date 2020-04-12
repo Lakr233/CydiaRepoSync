@@ -665,7 +665,26 @@ class JobManager {
         print("From: " + from.absoluteString + "\n  to: " + to.absoluteString)
         let sem = DispatchSemaphore(value: 0)
         // 开始下载
-        
+        JobManager.tim.async {
+            let request = createCydiaRequest(url: from)
+            let config = URLSessionConfiguration.default
+            let session = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
+            let task = session.dataTask(with: request) { (data, respond, error) in
+                if error == nil, let data = data, let resp = respond as? HTTPURLResponse {
+                    if resp.statusCode != 200 {
+                        print("[Release] Failed to get repo release, server returned " + String(resp.statusCode))
+                    } else {
+                        do {
+                            try data.write(to: to)
+                        } catch {
+                            print(" [E]: Failed to write package data and skipped")
+                        }
+                    }
+                }
+                sem.signal()
+            }
+            task.resume()
+        }
         // 超时由URLTask处理
         sem.wait()
     }
@@ -712,7 +731,11 @@ do {
 JobManager.shared.initPrint()
 
 do {
+    var count = 1
     for package in debContainer {
+        
+        print("\n")
+        print(String(count) + "/" + String(debContainer.count))
         for version in package.info {
             guard let comp = version.value["filename"] else {
                 print("[E] Package with id: " + package.id + " at version:" + version.key + " failed to locate and ignored")
@@ -730,5 +753,6 @@ do {
                 sleep(UInt32(ConfigManager.shared.gap))
             }
         }
+        count += 1
     }
 }
