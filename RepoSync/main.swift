@@ -38,11 +38,16 @@ Options:
     --overwrite default to false, will download all
                 packages and overwrite them for no
                 reason even they already exists
+    --clean     enable clean will delete all your local
+                files in output dir first
     --skip-sum  shutdown package validation even if
                 there is check sum or other sum info
                 exists in package release file
     --no-ssl    disable SSL verification if exists
     --mess      generate random id for each request
+    --timegap   sleep several seconds between requests
+                default to 0 and disabled
+                some repo has limited request to 10/min
                 ^_^
 
 Examples:
@@ -58,10 +63,121 @@ Examples:
         --overwrite \
         --skip-sum \
         --no-ssl \
-        --mess
+        --mess \
+        --timegap=1 \
+        --clean
 
 """
 
+
+struct pack {
+    let id: String
+    //          版本号     key      meta
+    var info: [String : [String : String]]
+}
+
+var debContainer: [pack] = []
+
+/*
+ 
+ When I wrote this function, invokeMeta, me and god know
+ how it works. But now, only god knows how it worked.
+ If you are trying to improve this routine, make sure to
+ modify this value here below.
+ 
+ total_hours_wasted_here = 1
+ 
+ */
+func invokeMeta(context: String) -> [String : String] {
+    let context = context + "\n\n"
+    var key = ""
+    var value = ""
+    var keyFlag = true
+    var newLineFlag = false
+    var dotdotFlag = false
+    var currentMeta = [String : String]()
+    for char in context {
+        let c = String(char)
+        inner: if c == ":" {
+            newLineFlag = false
+            keyFlag = false
+            if dotdotFlag {
+                value += ":"
+            } else {
+                dotdotFlag = true
+            }
+        } else if c == "\n" {
+            if newLineFlag == true {
+                return currentMeta
+            }
+            newLineFlag = true
+            keyFlag = true
+            if key == "" || value == "" {
+                dotdotFlag = false
+                break inner
+            }
+            while key.hasPrefix("\n") {
+                key = String(key.dropFirst())
+            }
+            value = String(value.dropFirst())
+            while value.hasPrefix(" ") {
+                value = String(value.dropFirst())
+            }
+            currentMeta[key.lowercased()] = value
+            key = ""
+            value = ""
+            if keyFlag {
+                key += c
+            }
+        } else {
+            newLineFlag = false
+            if keyFlag {
+                key += c
+            } else {
+                value += c
+            }
+        }
+    }
+    return [:]
+}
+
+func invokePackageMeta(meta: String) -> pack? {
+    let meta = invokeMeta(context: meta)
+    
+    guard let ver = meta["version"] else {
+        print("[invokePackageMeta] Invalid meta: missing version string")
+        return nil
+    }
+    guard let id = meta["package"] else {
+        print("[invokePackageMeta] Invalid meta: missing package string")
+        return nil
+    }
+    guard let _ = meta["filename"] else {
+        print("[invokePackageMeta] Invalid meta: missing download location")
+        return nil
+    }
+    return pack(id: id, info: [ver : meta])
+}
+
+func invokePackageMetas(meta: String) -> [pack] {
+    // 超级快查表 避免重复
+    var container: [String : pack] = [:]
+    for item in meta.components(separatedBy: "\n\n") {
+        if let pack = invokePackageMeta(meta: item) {
+            if container[pack.id] != nil {
+                // 已经包含了这个玩意         注意 单次初始化的软件包对象的info只有一个version
+                container[pack.id]!.info[pack.info.first!.key] = pack.info.first!.value
+            } else {
+                container[pack.id] = pack
+            }
+        }
+    }
+    var ret: [pack] = []
+    for item in container {
+        ret.append(item.value)
+    }
+    return ret
+}
 
 func getAbsoluteURL(location: String) -> URL {
     let path = location.replacingOccurrences(of: "~", with: FileManager.default.homeDirectoryForCurrentUser.path)
@@ -124,6 +240,8 @@ class ConfigManager {
     let skipsum: Bool
     let noSSL: Bool
     let mess: Bool
+    let gap: Int
+    let clean: Bool
     
     let udid: String
     let ua: String
@@ -142,6 +260,8 @@ class ConfigManager {
         var _skipsum: Bool?
         var _noSSL: Bool?
         var _mess: Bool?
+        var _gap: Int?
+        var _clean: Bool?
         
         var _ua: String?
         var _machine: String?
@@ -195,12 +315,20 @@ class ConfigManager {
                     _skipsum = true
                     continue
                 }
+                if item == "--clean" {
+                    _clean = true
+                    continue
+                }
                 if item == "--no-ssl" {
                     _noSSL = true
                     continue
                 }
                 if item == "--mess" {
                     _mess = true
+                    continue
+                }
+                if item == "--timegap" {
+                    _gap = Int(item.dropFirst("--timegap=".count))
                     continue
                 }
                 fatalError("\nCommand not understood: " + item)
@@ -242,6 +370,16 @@ class ConfigManager {
         } else {
             self.mess = false
         }
+        if let val = _gap {
+            self.gap = val
+        } else {
+            self.gap = 0
+        }
+        if let val = _clean {
+            self.clean = val
+        } else {
+            self.clean = false
+        }
         
         if let val = _ua {
             self.ua = val
@@ -271,7 +409,7 @@ class ConfigManager {
         print("\n")
         print("-------------------------")
         print("From: " + url.absoluteString + " to: " + output.absoluteString)
-        print(" -> depth: " + String(depth))
+        print(" -> depth: " + String(depth) + " timeGap: " + String(gap))
         var status = ""
         if overwrite {
             status += " overwrite"
@@ -284,6 +422,9 @@ class ConfigManager {
         }
         if mess {
             status += " mess"
+        }
+        if clean {
+            status += " clean"
         }
         if multiThread {
             status += " multiThread"
@@ -324,7 +465,8 @@ class JobManager {
     
     let release: String
     let package: String
-    let alreadyExistsPackages: [String]
+    //                          id        version
+    let alreadyExistsPackages: [String : [String]]
     
     static let tim = DispatchQueue(label: "wiki.qaq.JobsLoveTim")
     
@@ -449,13 +591,90 @@ class JobManager {
         print("\n\n🎉 Congratulations! Repo is validated!\n\n")
         print("Invoking package metadata, this will take some times...")
         
-        alreadyExistsPackages = []
+        let packages = invokePackageMetas(meta: package)
+
+        var exists: [String : [String]]?
         
+        if ConfigManager.shared.overwrite {
+            debContainer = packages
+        } else {
+            // 先获取存在的软件包
+            exists = [:]
+            let contents = try? FileManager.default.contentsOfDirectory(atPath: ConfigManager.shared.output.appendingPathComponent("debs").absoluteString)
+            flag1: for item in contents ?? [] {
+                // 校验软件包 核验通过之后添加到已存在列表
+                for object in packages {
+                    for version in object.info {
+                        let val = version.value
+                        let downloadLocation = val["filename"] ?? ""
+                        let name = String(downloadLocation.split(separator: "/").last ?? "")
+                        if name == item {
+                            // 一般来说文件名都包含版本号 不包含的话也不会有多版本的存在
+                            if exists![object.id] == nil {
+                                exists![object.id] = [version.key]
+                            } else {
+                                exists![object.id]!.append(version.key)
+                            }
+                            continue flag1
+                        }
+                    }
+                }
+            }
+        }
+        
+        if let exists = exists {
+            alreadyExistsPackages = exists
+            // 能走到这里一定没有开覆盖 那么我们构建软件包列表
+            var temp: [String : pack] = [:]
+            for item in packages {
+                for version in item.info {
+                    // 如果这个版本这个软件包存在于exists里面就跳过
+                    if exists.keys.contains(item.id) && exists[item.id]!.contains(version.key) {
+                        print("Skipping package with id: " + item.id + " at version: " + version.key)
+                    } else {
+                        // 不存在下载好的文件
+                        if temp[item.id] != nil {
+                            // 已经有这个软件包了
+                            temp[item.id]!.info[version.key] = version.value
+                        } else {
+                            temp[item.id] = pack(id: item.id, info: [version.key : version.value])
+                        }
+                    }
+                }
+            }
+            for item in temp {
+                debContainer.append(item.value)
+            }
+        } else {
+            alreadyExistsPackages = [:]
+        }
+    
+        // 检查下载的depth
+        if (ConfigManager.shared.depth > 0) {
+            var temp: [pack] = []
+            let depth = ConfigManager.shared.depth
+            let dpkgAgent = dpkgWrapper()
+            for pack in debContainer {
+                // 获取这个软件包的全部版本
+                var versionStrings = pack.info.keys
+                // 排序
+                versionStrings.sorted { (A, B) -> Bool in
+                    return dpkgAgent.compareVersionA(A, andB: B) == 1
+                }
+                // 创建新的versionkeys
+                print("")
+                // 合成符合要求的deb
+                
+            }
+        }
         
         
     }
     
     func initPrint() {
+        
+        print("\n\n")
+        print(String(debContainer.count) + " packages to download in total")
         
     }
     
@@ -466,6 +685,14 @@ do {
         var isDir = ObjCBool(booleanLiteral: false)
         if FileManager.default.fileExists(atPath: ConfigManager.shared.output.absoluteString, isDirectory: &isDir) {
             assert(isDir.boolValue, "\nOutput location must be a folder")
+            if ConfigManager.shared.clean {
+                do {
+                    try FileManager.default.removeItem(at: ConfigManager.shared.output)
+                    try FileManager.default.createDirectory(at: ConfigManager.shared.output, withIntermediateDirectories: true, attributes: nil)
+                } catch {
+                    fatalError("\nCannot clean output location, maybe permission denied.")
+                }
+            }
         } else {
             do {
                 try FileManager.default.createDirectory(at: ConfigManager.shared.output, withIntermediateDirectories: true, attributes: nil)

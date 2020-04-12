@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		F71D667E2442B7FE0048089D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = F71D667D2442B7FE0048089D /* main.swift */; };
+		F7416E682442F167007C08AF /* dpkgWrapper.m in Sources */ = {isa = PBXBuildFile; fileRef = F7416E632442F071007C08AF /* dpkgWrapper.m */; };
+		F7416E692442F167007C08AF /* dpkgInline.c in Sources */ = {isa = PBXBuildFile; fileRef = F7416E612442F071007C08AF /* dpkgInline.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -25,6 +27,11 @@
 /* Begin PBXFileReference section */
 		F71D667A2442B7FE0048089D /* RepoSync */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = RepoSync; sourceTree = BUILT_PRODUCTS_DIR; };
 		F71D667D2442B7FE0048089D /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		F7416E5E2442F071007C08AF /* Bridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Bridge.h; sourceTree = "<group>"; };
+		F7416E612442F071007C08AF /* dpkgInline.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = dpkgInline.c; sourceTree = "<group>"; };
+		F7416E622442F071007C08AF /* dpkgWrapper.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dpkgWrapper.h; sourceTree = "<group>"; };
+		F7416E632442F071007C08AF /* dpkgWrapper.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = dpkgWrapper.m; sourceTree = "<group>"; };
+		F7416E652442F071007C08AF /* dpkgInline.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dpkgInline.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -57,9 +64,22 @@
 		F71D667C2442B7FE0048089D /* RepoSync */ = {
 			isa = PBXGroup;
 			children = (
+				F7416E5F2442F071007C08AF /* dpkg */,
+				F7416E5E2442F071007C08AF /* Bridge.h */,
 				F71D667D2442B7FE0048089D /* main.swift */,
 			);
 			path = RepoSync;
+			sourceTree = "<group>";
+		};
+		F7416E5F2442F071007C08AF /* dpkg */ = {
+			isa = PBXGroup;
+			children = (
+				F7416E622442F071007C08AF /* dpkgWrapper.h */,
+				F7416E632442F071007C08AF /* dpkgWrapper.m */,
+				F7416E612442F071007C08AF /* dpkgInline.c */,
+				F7416E652442F071007C08AF /* dpkgInline.h */,
+			);
+			path = dpkg;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -121,6 +141,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				F71D667E2442B7FE0048089D /* main.swift in Sources */,
+				F7416E682442F167007C08AF /* dpkgWrapper.m in Sources */,
+				F7416E692442F167007C08AF /* dpkgInline.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -243,8 +265,10 @@
 		F71D66822442B7FE0048089D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = RepoSync/Bridge.h;
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -252,8 +276,10 @@
 		F71D66832442B7FE0048089D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = RepoSync/Bridge.h;
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
