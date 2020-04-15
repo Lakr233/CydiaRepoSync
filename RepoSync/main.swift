@@ -21,7 +21,6 @@ Options:
     This is suggested avoiding waste of server
     or network resources
     It is expensive to host a cloud machine
-
     --depth     default to 2, used to control how
                 may versions of a package should be
                 downloaded if they exists. the count
@@ -42,6 +41,8 @@ Options:
                 reason even they already exists
     --clean     enable clean will delete all your local
                 files in output dir first
+    --rename    rename file name if matches remote package
+                usefull if you messed your package names
     --skip-sum  shutdown package validation even if
                 there is check sum or other sum info
                 exists in package release file
@@ -142,7 +143,9 @@ func invokeMeta(context: String) -> [String : String] {
 
 func invokePackageMeta(meta: String) -> pack? {
     let meta = invokeMeta(context: meta)
-    
+    if meta.count < 1 {
+        return nil
+    }
     guard let ver = meta["version"] else {
         print("[invokePackageMeta] Invalid meta ignored: missing version string")
         return nil
@@ -229,6 +232,43 @@ func createCydiaRequest(url: URL, slient: Bool = false) -> URLRequest {
     return request
 }
 
+func invokeSumWithMD5(data: Data) -> String {
+    let length = Int(CC_MD5_DIGEST_LENGTH)
+    let messageData = data
+    var digestData = Data(count: length)
+    _ = digestData.withUnsafeMutableBytes { digestBytes -> UInt8 in
+        messageData.withUnsafeBytes { messageBytes -> UInt8 in
+            if let messageBytesBaseAddress = messageBytes.baseAddress, let digestBytesBlindMemory = digestBytes.bindMemory(to: UInt8.self).baseAddress {
+                let messageLength = CC_LONG(messageData.count)
+                CC_MD5(messageBytesBaseAddress, messageLength, digestBytesBlindMemory)
+            }
+            return 0
+        }
+    }
+    let md5Hex =  digestData.map { String(format: "%02hhx", $0) }.joined()
+    return md5Hex
+}
+
+func invokeSumWithSHA1(data: Data) -> String {
+    var digest = [UInt8](repeating: 0, count:Int(CC_SHA1_DIGEST_LENGTH))
+    data.withUnsafeBytes {
+        _ = CC_SHA1($0.baseAddress, CC_LONG(data.count), &digest)
+    }
+    let hexBytes = digest.map { String(format: "%02hhx", $0) }
+    let sha1Hex = hexBytes.joined()
+    return sha1Hex
+}
+
+func invokeSumWithSHA256(data: Data) -> String {
+    var digest = [UInt8](repeating: 0, count:Int(CC_SHA256_DIGEST_LENGTH))
+    data.withUnsafeBytes {
+        _ = CC_SHA256($0.baseAddress, CC_LONG(data.count), &digest)
+    }
+    let hexBytes = digest.map { String(format: "%02hhx", $0) }
+    let sha256Hex = hexBytes.joined()
+    return sha256Hex
+}
+
 class ConfigManager {
     
     static let shared = ConfigManager(venderInfo: "vender init")
@@ -238,10 +278,11 @@ class ConfigManager {
     let depth: Int          // ✅
     let timeout: Int        // ✅
     let overwrite: Bool     // ✅
-    let skipsum: Bool
+    let skipsum: Bool       // ✅
     let mess: Bool          // ✅
     let gap: Int            // ✅
     let clean: Bool         // ✅
+    let rename: Bool        // ✅
     
     let udid: String        // ✅
     let ua: String          // ✅
@@ -260,6 +301,7 @@ class ConfigManager {
         var _mess: Bool?
         var _gap: Int?
         var _clean: Bool?
+        var _rename: Bool?
         
         var _ua: String?
         var _machine: String?
@@ -303,6 +345,10 @@ class ConfigManager {
                 }
                 if item == "--overwrite" {
                     _overwrite = true
+                    continue
+                }
+                if item == "--rename" {
+                    _rename = true
                     continue
                 }
                 if item == "--skip-sum" {
@@ -361,6 +407,12 @@ class ConfigManager {
             self.clean = false
         }
         
+        if let val = _rename {
+            self.rename = val
+        } else {
+            self.rename = false
+        }
+        
         if let val = _ua {
             self.ua = val
         } else {
@@ -382,7 +434,6 @@ class ConfigManager {
             self.machine = "iPhone8,1"
         }
         
-        
     }
     
     func printConfig() {
@@ -402,6 +453,9 @@ class ConfigManager {
         }
         if clean {
             status += " clean"
+        }
+        if rename {
+            status += " rename"
         }
         if (status != "") {
             while status.hasPrefix(" ") {
@@ -440,8 +494,9 @@ class JobManager {
     
     let release: String
     let package: String
-    //                          id        version
-    let alreadyExistsPackages: [String : [String]]
+    
+    //                已经存在的 文件名      md5 sha1 sha256 filename
+    var alreadyExistsPackages: [String : (String, String, String)] = [:]
     
     static let tim = DispatchQueue(label: "wiki.qaq.JobsLoveTim")
     
@@ -570,54 +625,109 @@ class JobManager {
         print("Invoking package metadata, this will take some times...")
         
         let packages = invokePackageMetas(meta: package)
-
-        var exists: [String : [String]]?
         
-        if ConfigManager.shared.overwrite {
-            debContainer = packages
-        } else {
+        if !ConfigManager.shared.overwrite {
+            print("Analyzing local packages, this will take some times...")
             // 先获取存在的软件包
-            exists = [:]
             var loc = ConfigManager.shared.output.appendingPathComponent("debs").absoluteString
             if loc.hasPrefix("file:") {
                 loc = String(loc.dropFirst(5)) // must be there
             }
             let contents = try? FileManager.default.contentsOfDirectory(atPath: loc)
-            flag1: for item in contents ?? [] {
-                // 校验软件包 核验通过之后添加到已存在列表
-                for object in packages {
-                    for version in object.info {
-                        let val = version.value
-                        let downloadLocation = val["filename"] ?? ""
-                        let name = String(downloadLocation.split(separator: "/").last ?? "")
-                        if name == item {
-                            // 一般来说文件名都包含版本号 不包含的话也不会有多版本的存在
-                            if exists![object.id] == nil {
-                                exists![object.id] = [version.key]
-                            } else {
-                                exists![object.id]!.append(version.key)
-                            }
-                            continue flag1
-                        }
-                    }
+            // 读取所有本地文件并构建校验列表
+            for item in contents ?? [] {
+                let fullLocation = loc + "/" + item
+                let read = try? Data(contentsOf: URL(fileURLWithPath: fullLocation))
+                if let read = read {
+                    // 读取成功！开始计算
+                    let md5 = invokeSumWithMD5(data: read)
+                    let sha1 = invokeSumWithSHA1(data: read)
+                    let sha256 = invokeSumWithSHA256(data: read)
+                    alreadyExistsPackages[item] = (md5, sha1, sha256)
                 }
             }
+            print("\n\n🎉 Congratulations! Analyze completed!\n")
         }
         
-        if let exists = exists {
-            alreadyExistsPackages = exists
-            // 能走到这里一定没有开覆盖 那么我们构建软件包列表
+        // 如果开了覆盖不可能出现数据
+        if alreadyExistsPackages.count > 0 {
+            // 重新构建软件包咯
             var temp: [String : pack] = [:]
-            for item in packages {
-                for version in item.info {
-                    // 如果这个版本这个软件包存在于exists里面就跳过
-                    if exists.keys.contains(item.id) && exists[item.id]!.contains(version.key) {
-                        print("Skipping package with id: " + item.id + " at version: " + version.key)
+            flag233: for item in packages {                             // item -> pack
+                flag234: for version in item.info {                     // \-> version -> [String : [String : String]
+                    var everFoundMatch = false
+                    var matchName = ""
+                    flag235: for sumObject in alreadyExistsPackages {   // sumObject -> String : (String, String, String)
+                        // 注意这里不检查深度
+                        // 这里开始核验校验数据是否出现在记录中
+                        var recordMatch = 3                             //  3 = record not found
+                                                                        // -1 = record match failed
+                                                                        //  1 = record found and matches at least once
+                        if recordMatch > 0, let md5Record = version.value["md5sum"] {
+                            if md5Record == sumObject.value.0 {
+                                recordMatch = 1
+                            } else {
+                                recordMatch = -1
+                            }
+                        }
+                        if recordMatch > 0, let sha1Record = version.value["sha1"] {
+                            if sha1Record == sumObject.value.1 {
+                                recordMatch = 1
+                            } else {
+                                recordMatch = -1
+                            }
+                        }
+                        if recordMatch > 0, let sha256Record = version.value["sha256"] {
+                            if sha256Record == sumObject.value.2 {
+                                recordMatch = 1
+                            } else {
+                                recordMatch = -1
+                            }
+                        }
+                        // 任何一次失败的校验都会置-1并跳过接下来的比对
+                        if recordMatch == 1 {
+                            everFoundMatch = true
+                            matchName = sumObject.key
+                        }
+                    }
+                    if everFoundMatch {
+                        print("Skipping due to sum matches at package: " + item.id + "\n" +
+                              "                            at version: " + version.key)
+                        if ConfigManager.shared.rename {
+                            // 先获缓存位置
+                            var loc = ConfigManager.shared.output.appendingPathComponent("debs").absoluteString
+                            if loc.hasPrefix("file:") {
+                                loc = String(loc.dropFirst(5)) // must be there
+                            }
+                            let origString = loc + "/" + matchName
+                            // 获取远端文件名
+                            if FileManager.default.fileExists(atPath: origString),
+                                let target = version.value["filename"],
+                                let filePath = URL(string: target) {
+                                let fileName = filePath.lastPathComponent
+                                let newString = loc + "/" + fileName
+                                // 重命名一下咯
+                                if newString != origString {
+                                    do {
+                                        try FileManager.default.moveItem(atPath: origString, toPath: newString)
+                                        print("                            renamed!")
+                                    } catch {
+                                        print("                            rename failed!")
+                                    }
+                                }
+                            }
+                        }
                     } else {
-                        // 不存在下载好的文件
-                        if temp[item.id] != nil {
-                            // 已经有这个软件包了
-                            temp[item.id]!.info[version.key] = version.value
+                        // 没找到咯那就重新下载
+                        if let object = temp[item.id] {
+                            // 这说明temp中有这个软件包了 我们添加一个版本
+                            var ver: [String : [String : String]] = [:]
+                            for ooo in object.info {
+                                ver[ooo.key] = ooo.value
+                            }
+                            ver[version.key] = version.value
+                            let new = pack(id: item.id, info: ver)
+                            temp[item.id] = new
                         } else {
                             temp[item.id] = pack(id: item.id, info: [version.key : version.value])
                         }
@@ -629,6 +739,7 @@ class JobManager {
             }
         } else {
             alreadyExistsPackages = [:]
+            debContainer = packages
         }
     
         // 检查下载的depth
@@ -693,44 +804,19 @@ class JobManager {
                             // 校验数据
                             var failed = false
                             if let md5 = md5 {
-                                let length = Int(CC_MD5_DIGEST_LENGTH)
-                                let messageData = data
-                                var digestData = Data(count: length)
-                                _ = digestData.withUnsafeMutableBytes { digestBytes -> UInt8 in
-                                    messageData.withUnsafeBytes { messageBytes -> UInt8 in
-                                        if let messageBytesBaseAddress = messageBytes.baseAddress, let digestBytesBlindMemory = digestBytes.bindMemory(to: UInt8.self).baseAddress {
-                                            let messageLength = CC_LONG(messageData.count)
-                                            CC_MD5(messageBytesBaseAddress, messageLength, digestBytesBlindMemory)
-                                        }
-                                        return 0
-                                    }
-                                }
-                                let md5Hex =  digestData.map { String(format: "%02hhx", $0) }.joined()
-                                if md5.lowercased() != md5Hex.lowercased() {
+                                if md5.lowercased() != invokeSumWithMD5(data: data).lowercased() {
                                     errorTint.append("MD5 failed at: " + from.absoluteString)
                                     failed = true
                                 }
                             }
                             if let sha1 = sha1 {
-                                var digest = [UInt8](repeating: 0, count:Int(CC_SHA1_DIGEST_LENGTH))
-                                data.withUnsafeBytes {
-                                    _ = CC_SHA1($0.baseAddress, CC_LONG(data.count), &digest)
-                                }
-                                let hexBytes = digest.map { String(format: "%02hhx", $0) }
-                                let sha1Hex = hexBytes.joined()
-                                if sha1.lowercased() != sha1Hex.lowercased() {
+                                if sha1.lowercased() != invokeSumWithSHA1(data: data).lowercased() {
                                     errorTint.append("SHA1 failed at: " + from.absoluteString)
                                     failed = true
                                 }
                             }
                             if let sha256 = sha256 {
-                                var digest = [UInt8](repeating: 0, count:Int(CC_SHA256_DIGEST_LENGTH))
-                                data.withUnsafeBytes {
-                                    _ = CC_SHA256($0.baseAddress, CC_LONG(data.count), &digest)
-                                }
-                                let hexBytes = digest.map { String(format: "%02hhx", $0) }
-                                let sha256Hex = hexBytes.joined()
-                                if sha256.lowercased() != sha256Hex.lowercased() {
+                                if sha256.lowercased() != invokeSumWithSHA256(data: data).lowercased() {
                                     errorTint.append("SHA256 failed at: " + from.absoluteString)
                                     failed = true
                                 }
@@ -840,7 +926,9 @@ for item in errorTint {
 }
 
 if errorTint.count == 0 {
-    print("\n\n🎉 No error occurs during download\n\n")
+    print("\n🎉 No error occurs during download\n\n")
 } else {
-    print("\n\nTask finished with errors above\n\n")
+    print("\nTask finished with errors above\n\n")
 }
+
+print("Lakr Aream 2020.4.15 Version 1.1")
