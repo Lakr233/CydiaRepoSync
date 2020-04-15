@@ -501,10 +501,13 @@ class JobManager {
     static let tim = DispatchQueue(label: "wiki.qaq.JobsLoveTim")
     
     required init(venderInfo: String) {
+        
         if venderInfo != "vender init" {
             fatalError("\nConfigManager could only be init by vender and have one instance")
         }
+        
         let semRelease = DispatchSemaphore(value: 0)
+        let semIcon    = DispatchSemaphore(value: 0)
         let semPackage = DispatchSemaphore(value: 0)
         
         var getRelease: String?
@@ -529,6 +532,27 @@ class JobManager {
                     }
                 }
                 semRelease.signal()
+            }
+            task.resume()
+        }
+        
+        JobManager.tim.async {
+            let request = createCydiaRequest(url: ConfigManager.shared.url.appendingPathComponent("CydiaIcon.png"))
+            let config = URLSessionConfiguration.default
+            let session = URLSession(configuration: config, delegate: nil, delegateQueue: nil)
+            let task = session.dataTask(with: request) { (data, respond, error) in
+                if error == nil, let data = data, let resp = respond as? HTTPURLResponse {
+                    if resp.statusCode != 200 {
+                        print("[Icon] Failed to get repo icon, server returned " + String(resp.statusCode))
+                    } else {
+                        do {
+                            try data.write(to: ConfigManager.shared.output.appendingPathComponent("CydiaIcon.png"))
+                        } catch {
+                            print("[Icon] Failed to write CydiaIcon.png data")
+                        }
+                    }
+                }
+                semIcon.signal()
             }
             task.resume()
         }
@@ -595,6 +619,7 @@ class JobManager {
         
         
         let _ = semRelease.wait(timeout: .now() + Double(ConfigManager.shared.timeout))
+        let _ = semIcon.wait(timeout: .now() + Double(ConfigManager.shared.timeout))
         let _ = semPackage.wait(timeout: .now() + Double(ConfigManager.shared.timeout * search.count))
         
         if getRelease != nil {
