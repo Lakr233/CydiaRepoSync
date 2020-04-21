@@ -234,3 +234,6 @@ dockerbuild
 dockermnt
 
 CI
+
+SWCompression
+BitByteData

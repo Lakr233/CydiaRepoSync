@@ -594,13 +594,13 @@ class JobManager {
                                 fatalError("\nUnknown data format passed to vender function")
                             }
                             if let decoded = decode {
-                                if let str = String(data: decoded, encoding: .utf8) {
+                                if let str = String(data: decoded, encoding: .utf8), !str.hasPrefix("<!DOCTYPE html>") {
                                     sync.sync {
                                         getPackage = str
                                         semPackage.signal()
                                     }
                                     return
-                                } else if let str = String(data: decoded, encoding: .ascii) {
+                                } else if let str = String(data: decoded, encoding: .ascii), !str.hasPrefix("<!DOCTYPE html>") {
                                     sync.sync {
                                         getPackage = str
                                         semPackage.signal()

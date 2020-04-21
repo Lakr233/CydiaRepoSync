@@ -52,16 +52,16 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "https://apt.abcydia.com"
+            argument = "https://repo.hackyouriphone.org"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "/Users/ooo/Desktop/abcydia"
+            argument = "/Volumes/Hanabi/IODocker/WebContexts/repoSync/hyi"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--rename"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--boom"
@@ -77,7 +77,7 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--timeout=60"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--udid=arandomudidnumber"
