@@ -52,6 +52,7 @@ Options:
     --timegap           sleep several seconds between requests
                         default to 0 and disabled
                         some repo has limited request to 10/min
+    --just-print        do not download any package but print logs
                 ^_^
 
 Examples:
@@ -286,6 +287,7 @@ class ConfigManager {
     let clean: Bool         // ✅
     let rename: Bool        // ✅
     let namematch: Bool
+    let justprint: Bool
     
     let udid: String        // ✅
     let ua: String          // ✅
@@ -306,6 +308,7 @@ class ConfigManager {
         var _clean: Bool?
         var _rename: Bool?
         var _namematch: Bool?
+        var _justPrint: Bool?
         
         var _ua: String?
         var _machine: String?
@@ -375,6 +378,10 @@ class ConfigManager {
                     _gap = Int(item.dropFirst("--timegap=".count))
                     continue
                 }
+                if item == "--just-print" {
+                    _justPrint = true
+                    continue
+                }
                 fatalError("\nCommand not understood: " + item)
             }
         }
@@ -414,19 +421,21 @@ class ConfigManager {
         } else {
             self.clean = false
         }
-        
         if let val = _rename {
             self.rename = val
         } else {
             self.rename = false
         }
-        
         if let val = _namematch {
             self.namematch = val
         } else {
             self.namematch = false
         }
-        
+        if let val = _justPrint {
+            self.justprint = val
+        } else {
+            self.justprint = false
+        }
         if let val = _ua {
             self.ua = val
         } else {
@@ -986,11 +995,20 @@ do {
                 print("    -> " + comp)
                 continue
             }
-            JobManager.shared.download(from: target,
-                                       to: ConfigManager.shared.output.appendingPathComponent("debs").appendingPathComponent(String(name)),
-                                       md5: version.value["md5sum"],
-                                       sha1: version.value["sha1"],
-                                       sha256: version.value["sha256"])
+            if ConfigManager.shared.justprint {
+                print("[P] Will download from " + target.absoluteString + "\n"
+                    + "                    to " +
+                    ConfigManager.shared.output
+                        .appendingPathComponent("debs")
+                        .appendingPathComponent(String(name))
+                        .absoluteString)
+            } else {
+                JobManager.shared.download(from: target,
+                                           to: ConfigManager.shared.output.appendingPathComponent("debs").appendingPathComponent(String(name)),
+                                           md5: version.value["md5sum"],
+                                           sha1: version.value["sha1"],
+                                           sha256: version.value["sha256"])
+            }
             // 看下要不要睡一会
             if (ConfigManager.shared.gap > 0) {
                 sleep(UInt32(ConfigManager.shared.gap))

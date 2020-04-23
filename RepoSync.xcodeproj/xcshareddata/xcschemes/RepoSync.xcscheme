@@ -64,6 +64,10 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "--just-print"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "--rename"
             isEnabled = "NO">
          </CommandLineArgument>
