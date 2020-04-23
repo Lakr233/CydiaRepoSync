@@ -21,35 +21,37 @@ Options:
     This is suggested avoiding waste of server
     or network resources
     It is expensive to host a cloud machine
-    --depth     default to 2, used to control how
-                may versions of a package should be
-                downloaded if they exists. the count
-                excluded they versions that exists
-                locally
-                set to 0 to download them all
-    --timeout   default to 30, used to control timeout
-                time for each package download session
-    --udid      udid to request, ignored if --mess
-                random if not set
-    --ua        user agent to request, cydia if not set
-    --machine   machine to request, default to
-                "iPhone8,1", ignored if --mess
-    --firmware  system version to request, default to
-                "13.0", ignored if --mess
-    --overwrite default to false, will download all
-                packages and overwrite them for no
-                reason even they already exists
-    --clean     enable clean will delete all your local
-                files in output dir first
-    --rename    rename file name if matches remote package
-                usefull if you messed your package names
-    --skip-sum  shutdown package validation even if
-                there is check sum or other sum info
-                exists in package release file
-    --mess      generate random id for each request
-    --timegap   sleep several seconds between requests
-                default to 0 and disabled
-                some repo has limited request to 10/min
+    --depth             default to 2, used to control how
+                        may versions of a package should be
+                        downloaded if they exists. the count
+                        excluded they versions that exists
+                        locally
+                        set to 0 to download them all
+    --timeout           default to 30, used to control timeout
+                        time for each package download session
+    --udid              udid to request, ignored if --mess
+                        random if not set
+    --ua                user agent to request, cydia if not set
+    --machine           machine to request, default to
+                        "iPhone8,1", ignored if --mess
+    --firmware          system version to request, default to
+                        "13.0", ignored if --mess
+    --overwrite         default to false, will download all
+                        packages and overwrite them for no
+                        reason even they already exists
+    --clean             enable clean will delete all your local
+                        files in output dir first
+    --rename            rename file name if matches remote package
+                        usefull if you messed your package names
+    --skip-sum          shutdown package validation even if
+                        there is check sum or other sum info
+                        exists in package release file
+    --mess              generate random id for each request
+    --allow-name-match  allow package name to be used when finding
+                        downloaded packages
+    --timegap           sleep several seconds between requests
+                        default to 0 and disabled
+                        some repo has limited request to 10/min
                 ^_^
 
 Examples:
@@ -283,6 +285,7 @@ class ConfigManager {
     let gap: Int            // ✅
     let clean: Bool         // ✅
     let rename: Bool        // ✅
+    let namematch: Bool
     
     let udid: String        // ✅
     let ua: String          // ✅
@@ -302,6 +305,7 @@ class ConfigManager {
         var _gap: Int?
         var _clean: Bool?
         var _rename: Bool?
+        var _namematch: Bool?
         
         var _ua: String?
         var _machine: String?
@@ -363,6 +367,10 @@ class ConfigManager {
                     _mess = true
                     continue
                 }
+                if item == "--allow-name-match" {
+                    _namematch = true
+                    continue
+                }
                 if item == "--timegap" {
                     _gap = Int(item.dropFirst("--timegap=".count))
                     continue
@@ -413,6 +421,12 @@ class ConfigManager {
             self.rename = false
         }
         
+        if let val = _namematch {
+            self.namematch = val
+        } else {
+            self.namematch = false
+        }
+        
         if let val = _ua {
             self.ua = val
         } else {
@@ -456,6 +470,9 @@ class ConfigManager {
         }
         if rename {
             status += " rename"
+        }
+        if namematch {
+            status += " allow-name-match"
         }
         if (status != "") {
             while status.hasPrefix(" ") {
@@ -659,18 +676,27 @@ class JobManager {
                 loc = String(loc.dropFirst(5)) // must be there
             }
             let contents = try? FileManager.default.contentsOfDirectory(atPath: loc)
-            // 读取所有本地文件并构建校验列表
-            for item in contents ?? [] {
-                let fullLocation = loc + "/" + item
-                let read = try? Data(contentsOf: URL(fileURLWithPath: fullLocation))
-                if let read = read {
-                    // 读取成功！开始计算
-                    let md5 = invokeSumWithMD5(data: read)
-                    let sha1 = invokeSumWithSHA1(data: read)
-                    let sha256 = invokeSumWithSHA256(data: read)
-                    alreadyExistsPackages[item] = (md5, sha1, sha256)
+            
+            if ConfigManager.shared.namematch {
+                // 读取所有本地文件并构建校验列表
+                for item in contents ?? [] {
+                    alreadyExistsPackages[item] = ("*", "*", "*")
+                }
+            } else {
+                // 读取所有本地文件并构建校验列表
+                for item in contents ?? [] {
+                    let fullLocation = loc + "/" + item
+                    let read = try? Data(contentsOf: URL(fileURLWithPath: fullLocation))
+                    if let read = read {
+                        // 读取成功！开始计算
+                        let md5 = invokeSumWithMD5(data: read)
+                        let sha1 = invokeSumWithSHA1(data: read)
+                        let sha256 = invokeSumWithSHA256(data: read)
+                        alreadyExistsPackages[item] = (md5, sha1, sha256)
+                    }
                 }
             }
+
             print("\n\n🎉 Congratulations! Analyze completed!\n")
         }
         
@@ -680,44 +706,62 @@ class JobManager {
             var temp: [String : pack] = [:]
             flag233: for item in packages {                             // item -> pack
                 flag234: for version in item.info {                     // \-> version -> [String : [String : String]
+                    
                     var everFoundMatch = false
                     var matchName = ""
-                    flag235: for sumObject in alreadyExistsPackages {   // sumObject -> String : (String, String, String)
-                        // 注意这里不检查深度
-                        // 这里开始核验校验数据是否出现在记录中
-                        var recordMatch = 3                             //  3 = record not found
-                                                                        // -1 = record match failed
-                                                                        //  1 = record found and matches at least once
-                        if recordMatch > 0, let md5Record = version.value["md5sum"] {
-                            if md5Record == sumObject.value.0 {
-                                recordMatch = 1
-                            } else {
-                                recordMatch = -1
+                    
+                    if ConfigManager.shared.namematch {
+                        flag236: for packageName in alreadyExistsPackages.keys {
+                            if let filename = version.value["filename"],
+                                filename.hasSuffix(packageName) { // 偷懒一下！
+                                everFoundMatch = true
+                                break flag236
                             }
                         }
-                        if recordMatch > 0, let sha1Record = version.value["sha1"] {
-                            if sha1Record == sumObject.value.1 {
-                                recordMatch = 1
-                            } else {
-                                recordMatch = -1
+                    } else {
+                        flag235: for sumObject in alreadyExistsPackages {   // sumObject -> String : (String, String, String)
+                            // 注意这里不检查深度
+                            // 这里开始核验校验数据是否出现在记录中
+                            var recordMatch = 3                             //  3 = record not found
+                                                                            // -1 = record match failed
+                                                                            //  1 = record found and matches at least once
+                            if recordMatch > 0, let md5Record = version.value["md5sum"] {
+                                if md5Record == sumObject.value.0 {
+                                    recordMatch = 1
+                                } else {
+                                    recordMatch = -1
+                                }
                             }
-                        }
-                        if recordMatch > 0, let sha256Record = version.value["sha256"] {
-                            if sha256Record == sumObject.value.2 {
-                                recordMatch = 1
-                            } else {
-                                recordMatch = -1
+                            if recordMatch > 0, let sha1Record = version.value["sha1"] {
+                                if sha1Record == sumObject.value.1 {
+                                    recordMatch = 1
+                                } else {
+                                    recordMatch = -1
+                                }
                             }
-                        }
-                        // 任何一次失败的校验都会置-1并跳过接下来的比对
-                        if recordMatch == 1 {
-                            everFoundMatch = true
-                            matchName = sumObject.key
+                            if recordMatch > 0, let sha256Record = version.value["sha256"] {
+                                if sha256Record == sumObject.value.2 {
+                                    recordMatch = 1
+                                } else {
+                                    recordMatch = -1
+                                }
+                            }
+                            // 任何一次失败的校验都会置-1并跳过接下来的比对
+                            if recordMatch == 1 {
+                                everFoundMatch = true
+                                matchName = sumObject.key
+                            }
                         }
                     }
+                    
                     if everFoundMatch {
-                        print("Skipping due to sum matches at package: " + item.id + "\n" +
-                              "                            at version: " + version.key)
+                        if ConfigManager.shared.namematch {
+                            print("Skipping due to name matches at package: " + item.id + "\n" +
+                                  "                             at version: " + version.key)
+                        } else {
+                            print("Skipping due to sum matches at package: " + item.id + "\n" +
+                                  "                            at version: " + version.key)
+                        }
                         if ConfigManager.shared.rename {
                             // 先获缓存位置
                             var loc = ConfigManager.shared.output.appendingPathComponent("debs").absoluteString
@@ -921,12 +965,22 @@ do {
         
         print("\n")
         print(String(count) + "/" + String(debContainer.count))
-        for version in package.info {
+        bbb: for version in package.info {
             guard let comp = version.value["filename"] else {
                 print("[E] Package with id: " + package.id + " at version:" + version.key + " failed to locate and ignored")
                 continue
             }
-            let target = ConfigManager.shared.url.appendingPathComponent(comp)
+            
+            let target: URL
+            if comp.hasPrefix("https://") || comp.hasPrefix("http://") {
+                if let ttt = URL(string: comp) {
+                    target = ttt
+                } else {
+                    continue bbb
+                }
+            } else {
+                target = ConfigManager.shared.url.appendingPathComponent(comp)
+            }
             guard let name = comp.split(separator: "/").last else {
                 print("[E] Package with id: " + package.id + " at version:" + version.key + " failed to get file name and ignored")
                 print("    -> " + comp)

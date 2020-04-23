@@ -52,11 +52,15 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "https://repo.hackyouriphone.org"
+            argument = "https://repounclutter.coolstar.org"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "/Volumes/Hanabi/IODocker/WebContexts/repoSync/hyi"
+            argument = "/Volumes/Hanabi/IODocker/WebContexts/repoSync/bigbossplus"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--allow-name-match"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
