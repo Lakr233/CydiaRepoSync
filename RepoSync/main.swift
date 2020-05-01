@@ -72,6 +72,12 @@ Examples:
 
 """
 
+extension String {
+    mutating func cleanAndReplaceLineBreaker() {
+        self = self.replacingOccurrences(of: "\r\n", with: "\n", options: .literal, range: nil)
+        self = self.replacingOccurrences(of: "\r", with: "\n", options: .literal, range: nil)
+    }
+}
 
 struct pack {
     let id: String
@@ -620,13 +626,15 @@ class JobManager {
                                 fatalError("\nUnknown data format passed to vender function")
                             }
                             if let decoded = decode {
-                                if let str = String(data: decoded, encoding: .utf8), !str.hasPrefix("<!DOCTYPE html>") {
+                                if var str = String(data: decoded, encoding: .utf8), !str.hasPrefix("<!DOCTYPE html>") {
+                                    str.cleanAndReplaceLineBreaker()
                                     sync.sync {
                                         getPackage = str
                                         semPackage.signal()
                                     }
                                     return
-                                } else if let str = String(data: decoded, encoding: .ascii), !str.hasPrefix("<!DOCTYPE html>") {
+                                } else if var str = String(data: decoded, encoding: .ascii), !str.hasPrefix("<!DOCTYPE html>") {
+                                    str.cleanAndReplaceLineBreaker()
                                     sync.sync {
                                         getPackage = str
                                         semPackage.signal()
