@@ -9,7 +9,16 @@
 #import "dpkgWrapper.h"
 #import "dpkgInline.h"
 
-@implementation dpkgWrapper
+@implementation PackageOperator
+
++ (instancetype)sharedInstance {
+    static PackageOperator *sharedInstance = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sharedInstance = [[PackageOperator alloc] init];
+    });
+    return sharedInstance;
+}
 
 -(BOOL)isVersionVaild:(NSString *)a {
     struct dpkg_version v;

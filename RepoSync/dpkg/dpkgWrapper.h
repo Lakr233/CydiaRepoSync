@@ -10,7 +10,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface dpkgWrapper : NSObject
+@interface PackageOperator : NSObject
+
++ (instancetype)sharedInstance;
 
 -(BOOL)isVersionVaild:(NSString *)a;
 -(int)compareVersionA:(NSString *)a andB:(NSString *)b;

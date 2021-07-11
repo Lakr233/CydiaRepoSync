@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1130"
+   LastUpgradeVersion = "1300"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -56,7 +56,7 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "/Volumes/Hanabi/IODocker/WebContexts/repoSync/bigbossplus"
+            argument = "~/Desktop/repo"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
@@ -64,8 +64,12 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "--just-print"
+            argument = "--multithread=6"
             isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--just-print"
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--rename"

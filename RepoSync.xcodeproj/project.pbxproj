@@ -3,32 +3,23 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 52;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		F7035291244308990013C165 /* SWCompression.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F7035290244308990013C165 /* SWCompression.framework */; };
-		F7035292244308990013C165 /* SWCompression.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F7035290244308990013C165 /* SWCompression.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		F70352952443089C0013C165 /* BitByteData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F70352942443089C0013C165 /* BitByteData.framework */; };
-		F70352962443089C0013C165 /* BitByteData.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F70352942443089C0013C165 /* BitByteData.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		50762670269AC9D1006F27EF /* Structure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5076266F269AC9D1006F27EF /* Structure.swift */; };
+		50762672269AC9DD006F27EF /* Function.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50762671269AC9DD006F27EF /* Function.swift */; };
+		50762674269ACA0E006F27EF /* ArgumentParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50762673269ACA0E006F27EF /* ArgumentParser.swift */; };
+		50762676269ACD54006F27EF /* WorkParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50762675269ACD54006F27EF /* WorkParser.swift */; };
+		50F9419B269AC60800C6374C /* SWCompression in Frameworks */ = {isa = PBXBuildFile; productRef = 50F9419A269AC60800C6374C /* SWCompression */; };
+		50F941A0269AC72600C6374C /* Extension+DEBIAN.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50F9419F269AC72600C6374C /* Extension+DEBIAN.swift */; };
+		50F941A2269AC75000C6374C /* Extension+String.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50F941A1269AC75000C6374C /* Extension+String.swift */; };
 		F71D667E2442B7FE0048089D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = F71D667D2442B7FE0048089D /* main.swift */; };
 		F7416E682442F167007C08AF /* dpkgWrapper.m in Sources */ = {isa = PBXBuildFile; fileRef = F7416E632442F071007C08AF /* dpkgWrapper.m */; };
 		F7416E692442F167007C08AF /* dpkgInline.c in Sources */ = {isa = PBXBuildFile; fileRef = F7416E612442F071007C08AF /* dpkgInline.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		F7035293244308990013C165 /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				F70352962443089C0013C165 /* BitByteData.framework in Embed Frameworks */,
-				F7035292244308990013C165 /* SWCompression.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		F71D66782442B7FE0048089D /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -41,6 +32,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		5076266F269AC9D1006F27EF /* Structure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Structure.swift; sourceTree = "<group>"; };
+		50762671269AC9DD006F27EF /* Function.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Function.swift; sourceTree = "<group>"; };
+		50762673269ACA0E006F27EF /* ArgumentParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArgumentParser.swift; sourceTree = "<group>"; };
+		50762675269ACD54006F27EF /* WorkParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkParser.swift; sourceTree = "<group>"; };
+		50F9419F269AC72600C6374C /* Extension+DEBIAN.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Extension+DEBIAN.swift"; sourceTree = "<group>"; };
+		50F941A1269AC75000C6374C /* Extension+String.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Extension+String.swift"; sourceTree = "<group>"; };
 		F7035290244308990013C165 /* SWCompression.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = SWCompression.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		F70352942443089C0013C165 /* BitByteData.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = BitByteData.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		F71D667A2442B7FE0048089D /* RepoSync */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = RepoSync; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -57,8 +54,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F70352952443089C0013C165 /* BitByteData.framework in Frameworks */,
-				F7035291244308990013C165 /* SWCompression.framework in Frameworks */,
+				50F9419B269AC60800C6374C /* SWCompression in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -97,6 +93,12 @@
 				F7416E5F2442F071007C08AF /* dpkg */,
 				F7416E5E2442F071007C08AF /* Bridge.h */,
 				F71D667D2442B7FE0048089D /* main.swift */,
+				5076266F269AC9D1006F27EF /* Structure.swift */,
+				50762671269AC9DD006F27EF /* Function.swift */,
+				50762673269ACA0E006F27EF /* ArgumentParser.swift */,
+				50762675269ACD54006F27EF /* WorkParser.swift */,
+				50F941A1269AC75000C6374C /* Extension+String.swift */,
+				50F9419F269AC72600C6374C /* Extension+DEBIAN.swift */,
 			);
 			path = RepoSync;
 			sourceTree = "<group>";
@@ -123,13 +125,15 @@
 				F71D66772442B7FE0048089D /* Frameworks */,
 				F71D66782442B7FE0048089D /* CopyFiles */,
 				F7B5BC0224430280004AFE01 /* ShellScript */,
-				F7035293244308990013C165 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = RepoSync;
+			packageProductDependencies = (
+				50F9419A269AC60800C6374C /* SWCompression */,
+			);
 			productName = RepoSync;
 			productReference = F71D667A2442B7FE0048089D /* RepoSync */;
 			productType = "com.apple.product-type.tool";
@@ -141,7 +145,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 1130;
-				LastUpgradeCheck = 1130;
+				LastUpgradeCheck = 1300;
 				ORGANIZATIONNAME = "Lakr Aream";
 				TargetAttributes = {
 					F71D66792442B7FE0048089D = {
@@ -158,6 +162,9 @@
 				Base,
 			);
 			mainGroup = F71D66712442B7FE0048089D;
+			packageReferences = (
+				50F94199269AC60800C6374C /* XCRemoteSwiftPackageReference "SWCompression" */,
+			);
 			productRefGroup = F71D667B2442B7FE0048089D /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -192,9 +199,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				50F941A2269AC75000C6374C /* Extension+String.swift in Sources */,
+				50F941A0269AC72600C6374C /* Extension+DEBIAN.swift in Sources */,
+				50762672269AC9DD006F27EF /* Function.swift in Sources */,
 				F71D667E2442B7FE0048089D /* main.swift in Sources */,
+				50762676269ACD54006F27EF /* WorkParser.swift in Sources */,
 				F7416E682442F167007C08AF /* dpkgWrapper.m in Sources */,
 				F7416E692442F167007C08AF /* dpkgInline.c in Sources */,
+				50762670269AC9D1006F27EF /* Structure.swift in Sources */,
+				50762674269ACA0E006F27EF /* ArgumentParser.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -227,6 +240,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -287,6 +301,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -317,7 +332,6 @@
 		F71D66822442B7FE0048089D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -335,7 +349,6 @@
 		F71D66832442B7FE0048089D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -372,6 +385,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		50F94199269AC60800C6374C /* XCRemoteSwiftPackageReference "SWCompression" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tsolomko/SWCompression";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.5.11;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		50F9419A269AC60800C6374C /* SWCompression */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 50F94199269AC60800C6374C /* XCRemoteSwiftPackageReference "SWCompression" */;
+			productName = SWCompression;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = F71D66722442B7FE0048089D /* Project object */;
 }

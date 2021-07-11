@@ -1,0 +1,25 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "BitByteData",
+        "repositoryURL": "https://github.com/tsolomko/BitByteData",
+        "state": {
+          "branch": null,
+          "revision": "0969ebfb79ccbee05384249e818067a984337dc2",
+          "version": "1.4.4"
+        }
+      },
+      {
+        "package": "SWCompression",
+        "repositoryURL": "https://github.com/tsolomko/SWCompression",
+        "state": {
+          "branch": null,
+          "revision": "594cc1968e99f7df2b2d6e1d3ee76dec70ac9cc4",
+          "version": "4.5.11"
+        }
+      }
+    ]
+  },
+  "version": 1
+}
