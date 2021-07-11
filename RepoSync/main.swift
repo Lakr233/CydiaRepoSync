@@ -134,4 +134,4 @@ if nErrorIndicators.count == 0 {
     print("\nTask finished with errors above\n\n")
 }
 
-print("Lakr Aream 2020.4.15 Version 1.1")
+print("Lakr Aream 2021.7.11 Version 1.6")
